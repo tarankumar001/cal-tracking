@@ -1,0 +1,8 @@
+{
+  "appId": "com.caltrack.app",
+  "appName": "CalTrack",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  }
+}

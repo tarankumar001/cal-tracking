@@ -1,0 +1,28 @@
+{
+  "name": "cal-tracking-app",
+  "version": "1.0.0",
+  "description": "Modern, clean, mobile-first calorie and nutrition tracking application",
+  "main": "index.html",
+  "scripts": {
+    "start": "python3 -m http.server 3000 --bind 0.0.0.0",
+    "serve": "npx serve -l 3000 .",
+    "tunnel": "npx localtunnel --port 3000",
+    "build": "rm -rf www && mkdir -p www && cp -r index.html css js icons manifest.json sw.js www",
+    "cap:add": "npx cap add android",
+    "cap:sync": "npm run build && npx cap sync",
+    "cap:open": "npx cap open android"
+  },
+  "keywords": [
+    "nutrition",
+    "calorie-tracker",
+    "macro-tracker",
+    "fitness"
+  ],
+  "author": "Antigravity",
+  "license": "MIT",
+  "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/cli": "^8.5.2",
+    "@capacitor/core": "^8.5.2"
+  }
+}
