@@ -7,7 +7,7 @@
     "start": "python3 -m http.server 3000 --bind 0.0.0.0",
     "serve": "npx serve -l 3000 .",
     "tunnel": "npx localtunnel --port 3000",
-    "build": "rm -rf www && mkdir -p www && cp -r index.html css js icons manifest.json sw.js www",
+    "build": "rm -rf dist www && mkdir -p dist www && cp -r index.html css js icons manifest.json sw.js dist/ && cp -r dist/* www/",
     "cap:add": "npx cap add android",
     "cap:sync": "npm run build && npx cap sync",
     "cap:open": "npx cap open android"
