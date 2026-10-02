@@ -234,7 +234,11 @@
               </div>
             </div>
             <div class="meal-actions-group">
-              <button class="add-meal-btn" data-meal="breakfast" id="addMealBtnBreakfast">
+              <button type="button" class="quick-meal-btn" data-meal="breakfast" id="quickMealBtnBreakfast" title="Quick custom log (takeout, partial meal, custom macros)">
+                <span class="quick-icon-wrap">⚡</span>
+                <span>Quick</span>
+              </button>
+              <button type="button" class="add-meal-btn" data-meal="breakfast" id="addMealBtnBreakfast">
                 <span>+ Add</span>
               </button>
             </div>
@@ -255,7 +259,11 @@
               </div>
             </div>
             <div class="meal-actions-group">
-              <button class="add-meal-btn" data-meal="lunch" id="addMealBtnLunch">
+              <button type="button" class="quick-meal-btn" data-meal="lunch" id="quickMealBtnLunch" title="Quick custom log (takeout, partial meal, custom macros)">
+                <span class="quick-icon-wrap">⚡</span>
+                <span>Quick</span>
+              </button>
+              <button type="button" class="add-meal-btn" data-meal="lunch" id="addMealBtnLunch">
                 <span>+ Add</span>
               </button>
             </div>
@@ -276,7 +284,11 @@
               </div>
             </div>
             <div class="meal-actions-group">
-              <button class="add-meal-btn" data-meal="dinner" id="addMealBtnDinner">
+              <button type="button" class="quick-meal-btn" data-meal="dinner" id="quickMealBtnDinner" title="Quick custom log (takeout, partial meal, custom macros)">
+                <span class="quick-icon-wrap">⚡</span>
+                <span>Quick</span>
+              </button>
+              <button type="button" class="add-meal-btn" data-meal="dinner" id="addMealBtnDinner">
                 <span>+ Add</span>
               </button>
             </div>
@@ -297,7 +309,11 @@
               </div>
             </div>
             <div class="meal-actions-group">
-              <button class="add-meal-btn" data-meal="snacks" id="addMealBtnSnacks">
+              <button type="button" class="quick-meal-btn" data-meal="snacks" id="quickMealBtnSnacks" title="Quick custom log (takeout, partial meal, custom macros)">
+                <span class="quick-icon-wrap">⚡</span>
+                <span>Quick</span>
+              </button>
+              <button type="button" class="add-meal-btn" data-meal="snacks" id="addMealBtnSnacks">
                 <span>+ Add</span>
               </button>
             </div>
@@ -469,26 +485,50 @@
           </div>
         </div>
 
-        <!-- Scaled Nutrition Preview -->
-        <div class="preview-nutrition-box">
-          <span class="preview-title">Logged Nutrition Summary</span>
-          <div class="preview-stats-row">
-            <div class="preview-stat-item">
-              <span id="previewCalories" class="preview-stat-num cal">0</span>
-              <span class="preview-stat-sub">Calories</span>
+        <!-- Interactive Macro Customizer for Log Modal -->
+        <div class="macro-editor-box">
+          <div class="macro-editor-header">
+            <div class="macro-editor-title-wrap">
+              <span class="preview-title">Nutrition for This Meal</span>
+              <span id="logCustomBadge" class="custom-badge" style="display: none;">Customized</span>
             </div>
-            <div class="preview-stat-item">
-              <span id="previewProtein" class="preview-stat-num pro">0g</span>
-              <span class="preview-stat-sub">Protein</span>
+            <button type="button" id="logResetToStandardBtn" class="btn-text-action" title="Recalculate based on base food and quantity">
+              ↺ Reset
+            </button>
+          </div>
+          
+          <div class="macro-inputs-grid">
+            <div class="macro-input-card cal-card">
+              <label class="macro-input-label" for="logCaloriesInput">Calories</label>
+              <div class="macro-input-wrapper">
+                <input type="number" id="logCaloriesInput" class="macro-field-input" min="0" step="5" placeholder="0">
+                <span class="macro-unit">kcal</span>
+              </div>
             </div>
-            <div class="preview-stat-item">
-              <span id="previewCarbs" class="preview-stat-num carb">0g</span>
-              <span class="preview-stat-sub">Carbs</span>
+            <div class="macro-input-card pro-card">
+              <label class="macro-input-label" for="logProteinInput">Protein</label>
+              <div class="macro-input-wrapper">
+                <input type="number" id="logProteinInput" class="macro-field-input" min="0" step="0.5" placeholder="0">
+                <span class="macro-unit">g</span>
+              </div>
             </div>
-            <div class="preview-stat-item">
-              <span id="previewFat" class="preview-stat-num fat">0g</span>
-              <span class="preview-stat-sub">Fat</span>
+            <div class="macro-input-card carb-card">
+              <label class="macro-input-label" for="logCarbsInput">Carbs</label>
+              <div class="macro-input-wrapper">
+                <input type="number" id="logCarbsInput" class="macro-field-input" min="0" step="0.5" placeholder="0">
+                <span class="macro-unit">g</span>
+              </div>
             </div>
+            <div class="macro-input-card fat-card">
+              <label class="macro-input-label" for="logFatInput">Fat</label>
+              <div class="macro-input-wrapper">
+                <input type="number" id="logFatInput" class="macro-field-input" min="0" step="0.5" placeholder="0">
+                <span class="macro-unit">g</span>
+              </div>
+            </div>
+          </div>
+          <div class="macro-editor-hint">
+            💡 <em>Ate only some of it? You can edit calories or any macro directly above!</em>
           </div>
         </div>
       </div>
@@ -623,26 +663,54 @@
           </div>
         </div>
 
-        <!-- Scaled Nutrition Preview -->
-        <div class="preview-nutrition-box">
-          <span class="preview-title">Updated Nutrition</span>
-          <div class="preview-stats-row">
-            <div class="preview-stat-item">
-              <span id="editPreviewCalories" class="preview-stat-num cal">0</span>
-              <span class="preview-stat-sub">Calories</span>
+        <!-- Editable Nutrition Card for Diary Entry -->
+        <div class="macro-editor-box">
+          <div class="macro-editor-header">
+            <div class="macro-editor-title-wrap">
+              <span class="preview-title">Logged Entry Nutrition</span>
+              <span id="editCustomBadge" class="custom-badge" style="display: none;">Customized</span>
             </div>
-            <div class="preview-stat-item">
-              <span id="editPreviewProtein" class="preview-stat-num pro">0g</span>
-              <span class="preview-stat-sub">Protein</span>
+            <button type="button" id="editResetToScaleBtn" class="btn-text-action" title="Recalculate from servings">
+              ↺ Reset to Servings
+            </button>
+          </div>
+          
+          <div class="macro-inputs-grid">
+            <div class="macro-input-card cal-card">
+              <label class="macro-input-label" for="editEntryCaloriesInput">Calories</label>
+              <div class="macro-input-wrapper">
+                <input type="number" id="editEntryCaloriesInput" class="macro-field-input" min="0" step="5">
+                <span class="macro-unit">kcal</span>
+              </div>
             </div>
-            <div class="preview-stat-item">
-              <span id="editPreviewCarbs" class="preview-stat-num carb">0g</span>
-              <span class="preview-stat-sub">Carbs</span>
+            <div class="macro-input-card pro-card">
+              <label class="macro-input-label" for="editEntryProteinInput">Protein</label>
+              <div class="macro-input-wrapper">
+                <input type="number" id="editEntryProteinInput" class="macro-field-input" min="0" step="0.5">
+                <span class="macro-unit">g</span>
+              </div>
             </div>
-            <div class="preview-stat-item">
-              <span id="editPreviewFat" class="preview-stat-num fat">0g</span>
-              <span class="preview-stat-sub">Fat</span>
+            <div class="macro-input-card carb-card">
+              <label class="macro-input-label" for="editEntryCarbsInput">Carbs</label>
+              <div class="macro-input-wrapper">
+                <input type="number" id="editEntryCarbsInput" class="macro-field-input" min="0" step="0.5">
+                <span class="macro-unit">g</span>
+              </div>
             </div>
+            <div class="macro-input-card fat-card">
+              <label class="macro-input-label" for="editEntryFatInput">Fat</label>
+              <div class="macro-input-wrapper">
+                <input type="number" id="editEntryFatInput" class="macro-field-input" min="0" step="0.5">
+                <span class="macro-unit">g</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="macro-editor-footer">
+            <button type="button" id="editCalcCalFromMacrosBtn" class="btn-chip-action" title="Calculate calories based on 4/4/9 rule">
+              ⚡ Recalc Cals (4/4/9)
+            </button>
+            <span class="macro-editor-hint">💡 Direct edits override servings</span>
           </div>
         </div>
 
@@ -718,6 +786,76 @@
       <div class="sheet-footer">
         <button type="button" id="cancelSettingsBtn" class="btn-block-secondary">Cancel</button>
         <button type="submit" form="settingsForm" class="btn-block-primary">Save Targets</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 6: QUICK ADD / CUSTOM MEAL MODAL -->
+  <div id="quickAddModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="quickAddModalTitle">
+    <div class="modal-sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <h3 id="quickAddModalTitle" class="sheet-title">⚡ Quick Log Food</h3>
+        <button id="closeQuickAddModalBtn" class="action-icon-btn" aria-label="Close modal"></button>
+      </div>
+      <form id="quickAddForm" class="sheet-body">
+        <div class="form-group">
+          <label class="form-label" for="quickFoodName">Food or Order Description *</label>
+          <input type="text" id="quickFoodName" class="form-input" placeholder="e.g. Chipotle Bowl (ate half), Takeout Burger..." required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Meal</label>
+          <div class="meal-segmented-control" id="quickMealSelector">
+            <button type="button" class="meal-tab-btn" data-meal="breakfast">Breakfast</button>
+            <button type="button" class="meal-tab-btn active" data-meal="lunch">Lunch</button>
+            <button type="button" class="meal-tab-btn" data-meal="dinner">Dinner</button>
+            <button type="button" class="meal-tab-btn" data-meal="snacks">Snacks</button>
+          </div>
+        </div>
+
+        <div class="macro-editor-box">
+          <span class="preview-title">Nutrients for What You Ate</span>
+          <div class="macro-inputs-grid">
+            <div class="macro-input-card cal-card">
+              <label class="macro-input-label" for="quickCaloriesInput">Calories *</label>
+              <div class="macro-input-wrapper">
+                <input type="number" id="quickCaloriesInput" class="macro-field-input" min="0" step="5" placeholder="0" required>
+                <span class="macro-unit">kcal</span>
+              </div>
+            </div>
+            <div class="macro-input-card pro-card">
+              <label class="macro-input-label" for="quickProteinInput">Protein (g)</label>
+              <div class="macro-input-wrapper">
+                <input type="number" id="quickProteinInput" class="macro-field-input" min="0" step="0.5" placeholder="0">
+                <span class="macro-unit">g</span>
+              </div>
+            </div>
+            <div class="macro-input-card carb-card">
+              <label class="macro-input-label" for="quickCarbsInput">Carbs (g)</label>
+              <div class="macro-input-wrapper">
+                <input type="number" id="quickCarbsInput" class="macro-field-input" min="0" step="0.5" placeholder="0">
+                <span class="macro-unit">g</span>
+              </div>
+            </div>
+            <div class="macro-input-card fat-card">
+              <label class="macro-input-label" for="quickFatInput">Fat (g)</label>
+              <div class="macro-input-wrapper">
+                <input type="number" id="quickFatInput" class="macro-field-input" min="0" step="0.5" placeholder="0">
+                <span class="macro-unit">g</span>
+              </div>
+            </div>
+          </div>
+          <div class="macro-editor-footer">
+            <button type="button" id="quickAutoCalcCalBtn" class="btn-chip-action" title="Calculate calories based on 4/4/9 rule">
+              ⚡ Calculate Cals from Macros (4/4/9)
+            </button>
+          </div>
+        </div>
+      </form>
+      <div class="sheet-footer">
+        <button type="button" id="cancelQuickAddBtn" class="btn-block-secondary">Cancel</button>
+        <button type="submit" form="quickAddForm" class="btn-block-primary">Log to Diary</button>
       </div>
     </div>
   </div>
