@@ -25,6 +25,7 @@ import {
   deleteFood,
   duplicateFood,
   getDayEntries,
+  getLogDates,
   addMealEntry,
   updateMealEntry,
   deleteMealEntry,
@@ -37,11 +38,17 @@ import {
   importAllData,
   resetToDemoData
 } from './storage.js';
+import { getDateSequence, getNutritionSeries, getRangeStart, averageFor, createLineChartSvg } from './analytics.js';
+import { getActivityEntries, getActivitySummary, getStepGoal, saveManualSteps, saveImportedSteps, saveStepGoal } from './activity.js';
+import { getHealthConnectStatus, requestHealthConnectPermission, readHealthConnectSteps } from './health-connect.js';
+import { deleteWeightEntry, getWeightEntries, getWeightSummary, getWeightTrendSeries, localDateString, saveWeightEntry, toLocalDateTimeInput } from './weight.js';
 
 /* ==================== APPLICATION STATE ==================== */
 const state = {
   currentDate: getTodayDateString(),
   currentView: 'dashboard', // 'dashboard' | 'foods'
+  analyticsRange: '7',
+  analyticsMacro: 'protein',
   activeModal: null,
   activeTargetMeal: 'lunch', // Default meal for logging
   selectedFoodForLog: null,
@@ -65,6 +72,8 @@ document.addEventListener('DOMContentLoaded', () => {
   setupSettingsModal();
   setupQuickAddModal();
   setupSearch();
+  setupWeightModal();
+  setupAnalytics();
 
   // Render initial dashboard
   renderDashboard();
@@ -122,6 +131,7 @@ function setupIcons() {
   document.getElementById('plusIconCreateWrap').innerHTML = icons.plus;
   document.getElementById('navIconDashboard').innerHTML = icons.diary;
   document.getElementById('navIconFoods').innerHTML = icons.book;
+  document.getElementById('navIconAnalytics').innerHTML = icons.chart;
   document.getElementById('navIconCenterPlus').innerHTML = icons.plus;
 
   document.getElementById('closeFoodModalBtn').innerHTML = icons.close;
@@ -138,10 +148,12 @@ function setupIcons() {
 function setupNavigation() {
   const navDash = document.getElementById('navDashboardBtn');
   const navFoods = document.getElementById('navFoodsBtn');
+  const navAnalytics = document.getElementById('navAnalyticsBtn');
   const navCenterAdd = document.getElementById('navCenterAddBtn');
 
   navDash.addEventListener('click', () => switchView('dashboard'));
   navFoods.addEventListener('click', () => switchView('foods'));
+  navAnalytics.addEventListener('click', () => switchView('analytics'));
 
   // Center "+" button opens food database or log dialog
   navCenterAdd.addEventListener('click', () => {
@@ -154,27 +166,28 @@ function setupNavigation() {
 
 function switchView(viewName) {
   state.currentView = viewName;
+  const views = {
+    dashboard: 'dashboardView',
+    foods: 'databaseView',
+    analytics: 'analyticsView'
+  };
+  const navigation = {
+    dashboard: 'navDashboardBtn',
+    foods: 'navFoodsBtn',
+    analytics: 'navAnalyticsBtn'
+  };
+  Object.values(views).forEach((id) => document.getElementById(id).classList.toggle('active', id === views[viewName]));
+  Object.values(navigation).forEach((id) => document.getElementById(id).classList.toggle('active', id === navigation[viewName]));
 
-  const dashView = document.getElementById('dashboardView');
-  const foodView = document.getElementById('databaseView');
-  const navDash = document.getElementById('navDashboardBtn');
-  const navFoods = document.getElementById('navFoodsBtn');
-
-  if (viewName === 'dashboard') {
-    dashView.classList.add('active');
-    foodView.classList.remove('active');
-    navDash.classList.add('active');
-    navFoods.classList.remove('active');
-    renderDashboard();
-  } else {
-    dashView.classList.remove('active');
-    foodView.classList.add('active');
-    navDash.classList.remove('active');
-    navFoods.classList.add('active');
+  if (viewName === 'dashboard') renderDashboard();
+  if (viewName === 'foods') {
     renderFoodList();
-    // Focus search input on mobile/desktop
     const searchInput = document.getElementById('foodSearchInput');
     if (searchInput) searchInput.focus();
+  }
+  if (viewName === 'analytics') {
+    renderAnalytics();
+    refreshHealthConnectSteps();
   }
 }
 
@@ -1200,6 +1213,252 @@ function openQuickAddModal(preselectedMeal = 'lunch') {
   });
 
   openModal(modal);
+}
+
+function setupWeightModal() {
+  const modal = document.getElementById('weightModal');
+  document.getElementById('logWeightBtn').addEventListener('click', () => openWeightModal());
+  document.getElementById('closeWeightModalBtn').addEventListener('click', () => closeModal(modal));
+  document.getElementById('cancelWeightModalBtn').addEventListener('click', () => closeModal(modal));
+  document.getElementById('weightForm').addEventListener('submit', (event) => {
+    event.preventDefault();
+    try {
+      saveWeightEntry({
+        id: document.getElementById('weightEntryId').value || undefined,
+        weight: document.getElementById('weightInput').value,
+        dateTime: document.getElementById('weightDateTimeInput').value,
+        note: document.getElementById('weightNoteInput').value
+      });
+      closeModal(modal);
+      renderAnalytics();
+      showToast('Weight saved');
+    } catch (error) {
+      showToast(error.message);
+    }
+  });
+  document.getElementById('deleteWeightBtn').addEventListener('click', () => {
+    const id = document.getElementById('weightEntryId').value;
+    if (!id || !confirm('Delete this weight measurement?')) return;
+    deleteWeightEntry(id);
+    closeModal(modal);
+    renderAnalytics();
+    showToast('Weight measurement deleted');
+  });
+}
+
+function openWeightModal(entry = null) {
+  document.getElementById('weightModalTitle').textContent = entry ? 'Edit weight' : 'Log weight';
+  document.getElementById('weightEntryId').value = entry?.id || '';
+  document.getElementById('weightInput').value = entry?.weight ?? '';
+  document.getElementById('weightDateTimeInput').value = entry ? toLocalDateTimeInput(entry.timestamp) : toLocalDateTimeInput(new Date());
+  document.getElementById('weightNoteInput').value = entry?.note || '';
+  document.getElementById('deleteWeightBtn').hidden = !entry;
+  openModal(document.getElementById('weightModal'));
+}
+
+function setupAnalytics() {
+  document.querySelectorAll('[data-analytics-range]').forEach((button) => {
+    button.addEventListener('click', () => {
+      state.analyticsRange = button.dataset.analyticsRange;
+      document.querySelectorAll('[data-analytics-range]').forEach((item) => item.classList.toggle('active', item === button));
+      renderAnalytics();
+    });
+  });
+  document.querySelectorAll('[data-analytics-macro]').forEach((button) => {
+    button.addEventListener('click', () => {
+      state.analyticsMacro = button.dataset.analyticsMacro;
+      document.querySelectorAll('[data-analytics-macro]').forEach((item) => item.classList.toggle('active', item === button));
+      renderAnalytics();
+    });
+  });
+
+  document.getElementById('manualStepsDate').value = getTodayDateString();
+  document.getElementById('stepGoalInput').value = getStepGoal();
+  document.getElementById('stepGoalForm').addEventListener('submit', (event) => {
+    event.preventDefault();
+    try {
+      saveStepGoal(document.getElementById('stepGoalInput').value);
+      renderAnalytics();
+      showToast('Step goal saved');
+    } catch (error) {
+      showToast(error.message);
+    }
+  });
+  document.getElementById('manualStepsForm').addEventListener('submit', (event) => {
+    event.preventDefault();
+    try {
+      saveManualSteps(document.getElementById('manualStepsDate').value, document.getElementById('manualStepsValue').value);
+      document.getElementById('manualStepsValue').value = '';
+      renderAnalytics();
+      showToast('Manual steps saved');
+    } catch (error) {
+      showToast(error.message);
+    }
+  });
+  document.getElementById('healthConnectBtn').addEventListener('click', connectHealthConnect);
+}
+
+function getAnalyticsDates(today) {
+  const dates = [
+    ...getWeightEntries().map((entry) => entry.date),
+    ...getActivityEntries().map((entry) => entry.date),
+    ...getLogDates()
+  ].filter(Boolean).sort();
+  return getDateSequence(getRangeStart(state.analyticsRange, today, dates[0] || today), today);
+}
+
+function renderAnalytics() {
+  const today = getTodayDateString();
+  const dates = getAnalyticsDates(today);
+  const weights = getWeightEntries();
+  const summary = getWeightSummary(weights, today);
+  const formatWeight = (value) => Number.isFinite(value) ? `${value.toFixed(1)} kg` : '—';
+  document.getElementById('latestWeightValue').textContent = formatWeight(summary.latest ? Number(summary.latest.weight) : NaN);
+  document.getElementById('todayWeightValue').textContent = summary.today ? formatWeight(Number(summary.today.weight)) : 'No entry';
+  document.getElementById('previousWeightValue').textContent = summary.previous ? formatWeight(Number(summary.previous.weight)) : '—';
+  document.getElementById('weightAverageValue').textContent = formatWeight(summary.average7Day);
+  document.getElementById('weightChangeValue').textContent = summary.change === null
+    ? '—'
+    : `${summary.change > 0 ? '+' : ''}${summary.change.toFixed(1)} kg`;
+
+  const weightTrend = getWeightTrendSeries(weights).filter((point) => point.date >= dates[0] && point.date <= today);
+  document.getElementById('weightChart').innerHTML = createLineChartSvg(weightTrend, [
+    { key: 'weight', label: 'Daily average', className: 'weight-raw', unit: 'kg' },
+    { key: 'average7Day', label: '7-day average', className: 'weight-average', unit: 'kg' }
+  ], state.analyticsRange);
+  document.getElementById('weightHistoryCount').textContent = `${weights.length} measurement${weights.length === 1 ? '' : 's'}`;
+  renderWeightHistory(weights);
+
+  const nutrition = getNutritionSeries(dates, getDayEntries, getTargets);
+  const recentDates = getDateSequence(getRangeStart('7', today), today);
+  const recentNutrition = getNutritionSeries(recentDates, getDayEntries, getTargets).filter((item) => item.tracked);
+  const calorieAverage = averageFor(recentNutrition, 'calories');
+  const calorieTarget = Number(getTargets().calories) || 0;
+  document.getElementById('averageCaloriesValue').textContent = calorieAverage === null ? '—' : `${Math.round(calorieAverage).toLocaleString()} kcal`;
+  document.getElementById('calorieTargetDifference').textContent = calorieAverage === null
+    ? '—'
+    : `${Math.round(calorieAverage - calorieTarget) > 0 ? '+' : ''}${Math.round(calorieAverage - calorieTarget)} kcal`;
+  document.getElementById('calorieAverageCaption').textContent = `${recentNutrition.length} of the last 7 days have food entries. Average uses logged days only.`;
+  const calorieChart = nutrition.map((item) => ({ ...item, calories: item.tracked ? item.calories : null }));
+  document.getElementById('calorieChart').innerHTML = createLineChartSvg(calorieChart, [
+    { key: 'calories', label: 'Consumed', className: 'calorie-line', unit: 'kcal' },
+    { key: 'target', label: 'Target', className: 'target-line', unit: 'kcal' }
+  ], state.analyticsRange);
+
+  const macro = state.analyticsMacro;
+  const macroTarget = getTargets()[macro];
+  const hasMacroTarget = macroTarget !== null && macroTarget !== undefined && Number.isFinite(Number(macroTarget));
+  const macroSeries = nutrition.map((item) => ({
+    ...item,
+    [macro]: item.tracked ? item[macro] : null,
+    macroTarget: hasMacroTarget ? Number(macroTarget) : null
+  }));
+  const macroTitle = { protein: 'Protein', carbs: 'Carbohydrates', fat: 'Fat', fiber: 'Fiber' }[macro];
+  const macroLines = [{ key: macro, label: macroTitle, className: 'macro-line', unit: 'g' }];
+  if (hasMacroTarget) macroLines.push({ key: 'macroTarget', label: `${macroTitle} target`, className: 'target-line', unit: 'g' });
+  document.getElementById('macroChart').innerHTML = createLineChartSvg(macroSeries, macroLines, state.analyticsRange);
+
+  document.getElementById('stepGoalInput').value = getStepGoal();
+  renderActivityAnalytics(dates, today);
+}
+
+function renderWeightHistory(entries) {
+  const list = document.getElementById('weightHistoryList');
+  if (!entries.length) {
+    list.innerHTML = '<p class="empty-history">No measurements yet.</p>';
+    return;
+  }
+  list.innerHTML = entries.map((entry) => `
+    <div class="weight-history-row">
+      <div><strong>${Number(entry.weight).toFixed(1)} kg</strong><span>${new Date(entry.timestamp).toLocaleString()}</span>${entry.note ? `<small>${escapeHtml(entry.note)}</small>` : ''}</div>
+      <div class="weight-history-actions">
+        <button type="button" class="action-icon-btn" data-edit-weight="${escapeHtml(entry.id)}" title="Edit weight" aria-label="Edit weight">${icons.edit}</button>
+        <button type="button" class="action-icon-btn danger" data-delete-weight="${escapeHtml(entry.id)}" title="Delete weight" aria-label="Delete weight">${icons.trash}</button>
+      </div>
+    </div>
+  `).join('');
+  list.querySelectorAll('[data-edit-weight]').forEach((button) => {
+    button.addEventListener('click', () => openWeightModal(entries.find((entry) => entry.id === button.dataset.editWeight)));
+  });
+  list.querySelectorAll('[data-delete-weight]').forEach((button) => {
+    button.addEventListener('click', () => {
+      if (!confirm('Delete this weight measurement?')) return;
+      deleteWeightEntry(button.dataset.deleteWeight);
+      renderAnalytics();
+      showToast('Weight measurement deleted');
+    });
+  });
+}
+
+function renderActivityAnalytics(dates, today) {
+  const summary = getActivitySummary(today);
+  const stepsToday = summary.today?.steps;
+  document.getElementById('stepsTodayValue').textContent = Number.isFinite(stepsToday) ? stepsToday.toLocaleString() : 'No data';
+  document.getElementById('stepGoalValue').textContent = summary.goal.toLocaleString();
+  document.getElementById('weeklyStepsValue').textContent = summary.weeklyAverage === null
+    ? 'No data'
+    : `${summary.weeklyAverage.toLocaleString()} / tracked day`;
+  const sourceLabel = summary.today?.hasImported
+    ? summary.today.source.replace(/health-connect/g, 'Health Connect')
+    : summary.today ? 'Manual entry' : 'no entry';
+  document.getElementById('stepSourceStatus').textContent = `Today's source: ${sourceLabel}`;
+  const byDate = new Map(getActivityEntries().map((entry) => [entry.date, entry.steps]));
+  const series = dates.map((date) => ({
+    date,
+    steps: byDate.has(date) ? byDate.get(date) : null,
+    stepGoal: summary.goal
+  }));
+  document.getElementById('stepsChart').innerHTML = series.some((point) => Number.isFinite(point.steps))
+    ? createLineChartSvg(series, [
+      { key: 'steps', label: 'Steps', className: 'activity-line', unit: 'steps' },
+      { key: 'stepGoal', label: 'Goal', className: 'target-line', unit: 'steps' }
+    ], state.analyticsRange)
+    : '<div class="chart-empty">No step data in this date range.</div>';
+}
+
+async function refreshHealthConnectSteps() {
+  const statusElement = document.getElementById('healthConnectStatus');
+  const button = document.getElementById('healthConnectBtn');
+  const status = await getHealthConnectStatus();
+  button.textContent = status.connected ? 'Sync steps' : 'Connect';
+  if (!status.available || !status.connected) {
+    statusElement.textContent = status.message;
+    return;
+  }
+
+  statusElement.textContent = 'Connected to Health Connect. Updating the last 30 days...';
+  try {
+    const today = getTodayDateString();
+    const start = new Date(`${today}T00:00:00`);
+    start.setDate(start.getDate() - 29);
+    const records = await readHealthConnectSteps(localDateString(start), today);
+    saveImportedSteps(records);
+    statusElement.textContent = `Connected to Health Connect. Synced ${records.length} days just now.`;
+    renderAnalytics();
+  } catch (error) {
+    statusElement.textContent = 'Connected, but steps could not be synced. Check Health Connect permissions.';
+  }
+}
+
+async function connectHealthConnect() {
+  const status = await getHealthConnectStatus();
+  if (!status.available) {
+    document.getElementById('healthConnectStatus').textContent = status.message;
+    return;
+  }
+  if (!status.connected) {
+    try {
+      const result = await requestHealthConnectPermission();
+      if (!result.connected) {
+        document.getElementById('healthConnectStatus').textContent = 'Step access was not granted.';
+        return;
+      }
+    } catch (error) {
+      document.getElementById('healthConnectStatus').textContent = error.message;
+      return;
+    }
+  }
+  await refreshHealthConnectSteps();
 }
 
 /* ==================== SETTINGS & TARGETS MODAL ==================== */
