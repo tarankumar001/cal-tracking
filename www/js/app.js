@@ -132,7 +132,6 @@ function setupIcons() {
   document.getElementById('navIconDashboard').innerHTML = icons.diary;
   document.getElementById('navIconFoods').innerHTML = icons.book;
   document.getElementById('navIconAnalytics').innerHTML = icons.chart;
-  document.getElementById('navIconLearn').innerHTML = icons.info;
   document.getElementById('navIconCenterPlus').innerHTML = icons.plus;
 
   document.getElementById('closeFoodModalBtn').innerHTML = icons.close;
@@ -150,13 +149,11 @@ function setupNavigation() {
   const navDash = document.getElementById('navDashboardBtn');
   const navFoods = document.getElementById('navFoodsBtn');
   const navAnalytics = document.getElementById('navAnalyticsBtn');
-  const navLearn = document.getElementById('navLearnBtn');
   const navCenterAdd = document.getElementById('navCenterAddBtn');
 
   navDash.addEventListener('click', () => switchView('dashboard'));
   navFoods.addEventListener('click', () => switchView('foods'));
   navAnalytics.addEventListener('click', () => switchView('analytics'));
-  navLearn.addEventListener('click', () => switchView('learn'));
 
   // Center "+" button opens food database or log dialog
   navCenterAdd.addEventListener('click', () => {
@@ -172,14 +169,12 @@ function switchView(viewName) {
   const views = {
     dashboard: 'dashboardView',
     foods: 'databaseView',
-    analytics: 'analyticsView',
-    learn: 'learnView'
+    analytics: 'analyticsView'
   };
   const navigation = {
     dashboard: 'navDashboardBtn',
     foods: 'navFoodsBtn',
-    analytics: 'navAnalyticsBtn',
-    learn: 'navLearnBtn'
+    analytics: 'navAnalyticsBtn'
   };
   Object.values(views).forEach((id) => document.getElementById(id).classList.toggle('active', id === views[viewName]));
   Object.values(navigation).forEach((id) => document.getElementById(id).classList.toggle('active', id === navigation[viewName]));
