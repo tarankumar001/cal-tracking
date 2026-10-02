@@ -3,7 +3,7 @@
  * Manages LocalStorage for Foods, Daily Meal Logs, Targets, and Settings.
  */
 
-import { scaleNutrients } from './nutrition.js';
+import { scaleNutrients, roundTo } from './nutrition.js';
 
 const STORAGE_KEYS = {
   FOODS: 'caltrack_foods_v1',
@@ -70,26 +70,16 @@ export function initStorage() {
     }));
   }
 
-  // Pre-seed today's lunch with the example food if no logs exist yet
+  // Note: We do NOT auto-seed daily meal logs anymore so users get a clean diary each day.
+  // Clean up any previously auto-seeded dummy entries from today's log:
   const today = getTodayDateString();
   const logs = getStoredLogs();
-  if (!logs[today] || logs[today].length === 0) {
-    const seedEntry = {
-      id: 'entry_seed_' + Date.now(),
-      foodId: INITIAL_EXAMPLE_FOOD.id,
-      mealType: 'lunch',
-      name: INITIAL_EXAMPLE_FOOD.name,
-      servingSize: INITIAL_EXAMPLE_FOOD.servingSize,
-      quantity: 1,
-      calories: INITIAL_EXAMPLE_FOOD.calories,
-      protein: INITIAL_EXAMPLE_FOOD.protein,
-      carbs: INITIAL_EXAMPLE_FOOD.carbs,
-      fat: INITIAL_EXAMPLE_FOOD.fat,
-      fiber: INITIAL_EXAMPLE_FOOD.fiber,
-      loggedAt: new Date().toISOString()
-    };
-    logs[today] = [seedEntry];
-    localStorage.setItem(STORAGE_KEYS.LOGS, JSON.stringify(logs));
+  if (logs[today] && Array.isArray(logs[today])) {
+    const cleaned = logs[today].filter(entry => !entry.id.startsWith('entry_seed_'));
+    if (cleaned.length !== logs[today].length) {
+      logs[today] = cleaned;
+      localStorage.setItem(STORAGE_KEYS.LOGS, JSON.stringify(logs));
+    }
   }
 }
 
@@ -201,17 +191,51 @@ export function addMealEntry(dateStr, entryData) {
     logs[dateStr] = [];
   }
 
-  const quantity = Math.max(0.1, parseFloat(entryData.quantity) || 1);
-  const baseFood = entryData.baseFood || {
-    calories: entryData.calories,
-    protein: entryData.protein,
-    carbs: entryData.carbs,
-    fat: entryData.fat,
-    fiber: entryData.fiber
-  };
+  const quantity = Math.max(0.01, parseFloat(entryData.quantity) || 1);
+  const baseFood = entryData.baseFood || null;
 
-  // Compute scaled nutrition
-  const scaled = scaleNutrients(baseFood, quantity);
+  // Determine nutrients: use explicit custom values if provided, otherwise scale baseFood
+  let calories, protein, carbs, fat, fiber;
+
+  if (entryData.calories !== undefined && entryData.calories !== '') {
+    calories = Math.max(0, Math.round(parseFloat(entryData.calories) || 0));
+  } else if (baseFood) {
+    calories = Math.round((parseFloat(baseFood.calories) || 0) * quantity);
+  } else {
+    calories = 0;
+  }
+
+  if (entryData.protein !== undefined && entryData.protein !== '') {
+    protein = Math.max(0, roundTo(parseFloat(entryData.protein) || 0, 1));
+  } else if (baseFood) {
+    protein = Math.max(0, roundTo((parseFloat(baseFood.protein) || 0) * quantity, 1));
+  } else {
+    protein = 0;
+  }
+
+  if (entryData.carbs !== undefined && entryData.carbs !== '') {
+    carbs = Math.max(0, roundTo(parseFloat(entryData.carbs) || 0, 1));
+  } else if (baseFood) {
+    carbs = Math.max(0, roundTo((parseFloat(baseFood.carbs) || 0) * quantity, 1));
+  } else {
+    carbs = 0;
+  }
+
+  if (entryData.fat !== undefined && entryData.fat !== '') {
+    fat = Math.max(0, roundTo(parseFloat(entryData.fat) || 0, 1));
+  } else if (baseFood) {
+    fat = Math.max(0, roundTo((parseFloat(baseFood.fat) || 0) * quantity, 1));
+  } else {
+    fat = 0;
+  }
+
+  if (entryData.fiber !== undefined && entryData.fiber !== '') {
+    fiber = Math.max(0, roundTo(parseFloat(entryData.fiber) || 0, 1));
+  } else if (baseFood) {
+    fiber = Math.max(0, roundTo((parseFloat(baseFood.fiber) || 0) * quantity, 1));
+  } else {
+    fiber = 0;
+  }
 
   const newEntry = {
     id: 'entry_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
@@ -220,11 +244,20 @@ export function addMealEntry(dateStr, entryData) {
     name: (entryData.name || 'Unnamed Food').trim(),
     servingSize: (entryData.servingSize || '1 serving').trim(),
     quantity: quantity,
-    calories: scaled.calories,
-    protein: scaled.protein,
-    carbs: scaled.carbs,
-    fat: scaled.fat,
-    fiber: scaled.fiber,
+    calories: calories,
+    protein: protein,
+    carbs: carbs,
+    fat: fat,
+    fiber: fiber,
+    baseFood: baseFood ? {
+      calories: parseFloat(baseFood.calories) || 0,
+      protein: parseFloat(baseFood.protein) || 0,
+      carbs: parseFloat(baseFood.carbs) || 0,
+      fat: parseFloat(baseFood.fat) || 0,
+      fiber: parseFloat(baseFood.fiber) || 0,
+      servingSize: baseFood.servingSize || '1 serving'
+    } : null,
+    isCustomPortion: entryData.isCustomPortion || false,
     loggedAt: new Date().toISOString()
   };
 
@@ -251,25 +284,53 @@ export function updateMealEntry(dateStr, entryId, updates) {
   let fat = current.fat;
   let fiber = current.fiber;
 
-  // If quantity changed and we know the per-serving baseline, re-scale:
-  if (updates.quantity !== undefined && newQuantity !== current.quantity) {
-    const ratio = newQuantity / current.quantity;
-    calories = Math.round(current.calories * ratio);
-    protein = Math.round((current.protein * ratio) * 10) / 10;
-    carbs = Math.round((current.carbs * ratio) * 10) / 10;
-    fat = Math.round((current.fat * ratio) * 10) / 10;
-    fiber = Math.round((current.fiber * ratio) * 10) / 10;
+  // If quantity changed and no explicit macro overrides were given, scale proportionately
+  if (updates.quantity !== undefined && newQuantity !== current.quantity && updates.calories === undefined) {
+    if (current.baseFood) {
+      calories = Math.round((parseFloat(current.baseFood.calories) || 0) * newQuantity);
+      protein = roundTo((parseFloat(current.baseFood.protein) || 0) * newQuantity, 1);
+      carbs = roundTo((parseFloat(current.baseFood.carbs) || 0) * newQuantity, 1);
+      fat = roundTo((parseFloat(current.baseFood.fat) || 0) * newQuantity, 1);
+      fiber = roundTo((parseFloat(current.baseFood.fiber) || 0) * newQuantity, 1);
+    } else {
+      const ratio = newQuantity / current.quantity;
+      calories = Math.round(current.calories * ratio);
+      protein = roundTo(current.protein * ratio, 1);
+      carbs = roundTo(current.carbs * ratio, 1);
+      fat = roundTo(current.fat * ratio, 1);
+      fiber = roundTo((current.fiber || 0) * ratio, 1);
+    }
+  }
+
+  // Explicit macro overrides:
+  if (updates.calories !== undefined) {
+    calories = Math.max(0, Math.round(parseFloat(updates.calories) || 0));
+  }
+  if (updates.protein !== undefined) {
+    protein = Math.max(0, roundTo(parseFloat(updates.protein) || 0, 1));
+  }
+  if (updates.carbs !== undefined) {
+    carbs = Math.max(0, roundTo(parseFloat(updates.carbs) || 0, 1));
+  }
+  if (updates.fat !== undefined) {
+    fat = Math.max(0, roundTo(parseFloat(updates.fat) || 0, 1));
+  }
+  if (updates.fiber !== undefined) {
+    fiber = Math.max(0, roundTo(parseFloat(updates.fiber) || 0, 1));
   }
 
   const updatedEntry = {
     ...current,
+    name: updates.name !== undefined ? updates.name.trim() : current.name,
+    servingSize: updates.servingSize !== undefined ? updates.servingSize.trim() : current.servingSize,
     quantity: newQuantity,
     mealType: updates.mealType ? updates.mealType.toLowerCase() : current.mealType,
-    calories: updates.calories !== undefined ? updates.calories : calories,
-    protein: updates.protein !== undefined ? updates.protein : protein,
-    carbs: updates.carbs !== undefined ? updates.carbs : carbs,
-    fat: updates.fat !== undefined ? updates.fat : fat,
-    fiber: updates.fiber !== undefined ? updates.fiber : fiber
+    calories: calories,
+    protein: protein,
+    carbs: carbs,
+    fat: fat,
+    fiber: fiber,
+    isCustomPortion: updates.isCustomPortion !== undefined ? updates.isCustomPortion : current.isCustomPortion
   };
 
   entries[index] = updatedEntry;

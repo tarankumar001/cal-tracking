@@ -46,7 +46,9 @@ const state = {
   activeTargetMeal: 'lunch', // Default meal for logging
   selectedFoodForLog: null,
   selectedEntryForEdit: null,
-  isFoodCaloriesManuallyEdited: false
+  isFoodCaloriesManuallyEdited: false,
+  isLogMacrosCustomized: false,
+  isEditMacrosCustomized: false
 };
 
 /* ==================== INITIALIZATION ==================== */
@@ -61,6 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupEntryModal();
   setupDetailsModal();
   setupSettingsModal();
+  setupQuickAddModal();
   setupSearch();
 
   // Render initial dashboard
@@ -347,16 +350,25 @@ function renderMealSection(mealType, entries = [], mealTotals = { calories: 0, p
   const summaryEl = document.getElementById(`summaryMeal${capMeal}`);
   const listEl = document.getElementById(`entriesMeal${capMeal}`);
   const addBtn = document.getElementById(`addMealBtn${capMeal}`);
+  const quickBtn = document.getElementById(`quickMealBtn${capMeal}`);
 
   summaryEl.innerHTML = `<strong>${mealTotals.calories} kcal</strong> • ${roundTo(mealTotals.protein, 1)}P ${roundTo(mealTotals.carbs, 1)}C ${roundTo(mealTotals.fat, 1)}F`;
 
-  // Add Button Click opens Food list pre-targeted to this meal
+  // Add Button → go to food database
   addBtn.onclick = (e) => {
     e.stopPropagation();
     state.activeTargetMeal = mealType;
     switchView('foods');
     showToast(`Select food to add to ${capMeal}`);
   };
+
+  // Quick Button → open Quick Add modal pre-targeted to this meal
+  if (quickBtn) {
+    quickBtn.onclick = (e) => {
+      e.stopPropagation();
+      openQuickAddModal(mealType);
+    };
+  }
 
   listEl.innerHTML = '';
   if (entries.length === 0) {
@@ -679,6 +691,14 @@ function setupLogModal() {
   const chipBtns = modal.querySelectorAll('.chip-btn');
   const mealBtns = modal.querySelectorAll('#logMealSelector .meal-tab-btn');
 
+  // Macro editor inputs
+  const calInput = document.getElementById('logCaloriesInput');
+  const proInput = document.getElementById('logProteinInput');
+  const carbInput = document.getElementById('logCarbsInput');
+  const fatInput = document.getElementById('logFatInput');
+  const resetBtn = document.getElementById('logResetToStandardBtn');
+  const customBadge = document.getElementById('logCustomBadge');
+
   closeBtn.addEventListener('click', () => closeModal(modal));
   cancelBtn.addEventListener('click', () => closeModal(modal));
 
@@ -692,46 +712,68 @@ function setupLogModal() {
     });
   });
 
-  // Quantity stepper
+  // Quantity stepper — auto-recalculate unless macros are customized
+  const onQtyChange = () => {
+    if (!state.isLogMacrosCustomized) {
+      updateScaledPreview();
+    }
+    updateActiveChip(parseFloat(qtyInput.value) || 1);
+  };
+
   minusBtn.addEventListener('click', () => {
     let q = parseFloat(qtyInput.value) || 1;
     q = Math.max(0.25, roundTo(q - 0.25, 2));
     qtyInput.value = q;
-    updateScaledPreview();
-    updateActiveChip(q);
+    onQtyChange();
   });
 
   plusBtn.addEventListener('click', () => {
     let q = parseFloat(qtyInput.value) || 1;
     q = roundTo(q + 0.25, 2);
     qtyInput.value = q;
-    updateScaledPreview();
-    updateActiveChip(q);
+    onQtyChange();
   });
 
-  qtyInput.addEventListener('input', () => {
-    const q = Math.max(0.1, parseFloat(qtyInput.value) || 0.1);
-    updateScaledPreview();
-    updateActiveChip(q);
-  });
+  qtyInput.addEventListener('input', onQtyChange);
 
   chipBtns.forEach(chip => {
     chip.addEventListener('click', () => {
       const q = parseFloat(chip.dataset.qty);
       qtyInput.value = q;
-      updateScaledPreview();
       chipBtns.forEach(c => c.classList.remove('active'));
       chip.classList.add('active');
+      if (!state.isLogMacrosCustomized) {
+        updateScaledPreview();
+      }
     });
   });
 
-  // Confirm logging
+  // When user manually edits a macro field → mark as customized
+  [calInput, proInput, carbInput, fatInput].forEach(input => {
+    input.addEventListener('input', () => {
+      state.isLogMacrosCustomized = true;
+      customBadge.style.display = 'inline-flex';
+      // Update confirm button with manually entered calories
+      const manualCal = parseInt(calInput.value) || 0;
+      updateConfirmLogButtonText(manualCal);
+    });
+  });
+
+  // Reset macros back to scaled food values
+  resetBtn.addEventListener('click', () => {
+    state.isLogMacrosCustomized = false;
+    customBadge.style.display = 'none';
+    updateScaledPreview();
+  });
+
+  // Confirm logging — reads from editable inputs
   confirmBtn.addEventListener('click', () => {
     if (!state.selectedFoodForLog) return;
 
     const food = state.selectedFoodForLog;
     const quantity = Math.max(0.05, parseFloat(qtyInput.value) || 1);
     const mealType = state.activeTargetMeal || 'lunch';
+    const isCustom = state.isLogMacrosCustomized;
 
     addMealEntry(state.currentDate, {
       foodId: food.id,
@@ -739,29 +781,40 @@ function setupLogModal() {
       name: food.name,
       servingSize: food.servingSize,
       quantity: quantity,
+      calories: isCustom ? parseInt(calInput.value) || 0 : undefined,
+      protein: isCustom ? parseFloat(proInput.value) || 0 : undefined,
+      carbs: isCustom ? parseFloat(carbInput.value) || 0 : undefined,
+      fat: isCustom ? parseFloat(fatInput.value) || 0 : undefined,
+      isCustomPortion: isCustom,
       baseFood: {
         calories: food.calories,
         protein: food.protein,
         carbs: food.carbs,
         fat: food.fat,
-        fiber: food.fiber
+        fiber: food.fiber,
+        servingSize: food.servingSize
       }
     });
 
     closeModal(modal);
     renderDashboard();
     switchView('dashboard');
-    showToast(`Logged ${quantity} × "${food.name}" to ${mealType.toUpperCase()}`);
+    showToast(`Logged ${isCustom ? '(custom portion of) ' : ''}"${food.name}" to ${mealType.toUpperCase()}`);
   });
 }
 
 function openLogModal(food, preselectedMeal = null) {
   state.selectedFoodForLog = food;
+  state.isLogMacrosCustomized = false;
   const modal = document.getElementById('logModal');
 
   document.getElementById('logFoodId').value = food.id;
   document.getElementById('logFoodNameDisplay').textContent = food.name;
   document.getElementById('logFoodServingDisplay').textContent = `Base: ${food.servingSize} • ${food.calories} kcal (${food.protein}P / ${food.carbs}C / ${food.fat}F)`;
+
+  // Hide custom badge on open
+  const customBadge = document.getElementById('logCustomBadge');
+  if (customBadge) customBadge.style.display = 'none';
 
   // Meal selector
   if (preselectedMeal) {
@@ -769,14 +822,10 @@ function openLogModal(food, preselectedMeal = null) {
   }
   const mealBtns = modal.querySelectorAll('#logMealSelector .meal-tab-btn');
   mealBtns.forEach(btn => {
-    if (btn.dataset.meal === state.activeTargetMeal) {
-      btn.classList.add('active');
-    } else {
-      btn.classList.remove('active');
-    }
+    btn.classList.toggle('active', btn.dataset.meal === state.activeTargetMeal);
   });
 
-  // Reset quantity to 1.0
+  // Reset quantity to 1.0 and fill macro inputs from base food
   const qtyInput = document.getElementById('logQuantityInput');
   qtyInput.value = '1.0';
   updateActiveChip(1.0);
@@ -789,11 +838,7 @@ function openLogModal(food, preselectedMeal = null) {
 function updateActiveChip(qty) {
   const chips = document.querySelectorAll('#logModal .chip-btn');
   chips.forEach(chip => {
-    if (parseFloat(chip.dataset.qty) === qty) {
-      chip.classList.add('active');
-    } else {
-      chip.classList.remove('active');
-    }
+    chip.classList.toggle('active', parseFloat(chip.dataset.qty) === qty);
   });
 }
 
@@ -803,10 +848,16 @@ function updateScaledPreview() {
   const qty = Math.max(0.01, parseFloat(document.getElementById('logQuantityInput').value) || 1);
   const scaled = scaleNutrients(food, qty);
 
-  document.getElementById('previewCalories').textContent = scaled.calories;
-  document.getElementById('previewProtein').textContent = `${scaled.protein}g`;
-  document.getElementById('previewCarbs').textContent = `${scaled.carbs}g`;
-  document.getElementById('previewFat').textContent = `${scaled.fat}g`;
+  // Populate editable macro input fields
+  const calIn = document.getElementById('logCaloriesInput');
+  const proIn = document.getElementById('logProteinInput');
+  const carbIn = document.getElementById('logCarbsInput');
+  const fatIn = document.getElementById('logFatInput');
+
+  if (calIn) calIn.value = scaled.calories;
+  if (proIn) proIn.value = scaled.protein;
+  if (carbIn) carbIn.value = scaled.carbs;
+  if (fatIn) fatIn.value = scaled.fat;
 
   updateConfirmLogButtonText(scaled.calories);
 }
@@ -903,6 +954,15 @@ function setupEntryModal() {
   const plusBtn = document.getElementById('editEntryPlusBtn');
   const mealBtns = modal.querySelectorAll('#editMealSelector .meal-tab-btn');
 
+  // Macro editor elements
+  const calInput = document.getElementById('editEntryCaloriesInput');
+  const proInput = document.getElementById('editEntryProteinInput');
+  const carbInput = document.getElementById('editEntryCarbsInput');
+  const fatInput = document.getElementById('editEntryFatInput');
+  const resetBtn = document.getElementById('editResetToScaleBtn');
+  const recalcBtn = document.getElementById('editCalcCalFromMacrosBtn');
+  const customBadge = document.getElementById('editCustomBadge');
+
   closeBtn.addEventListener('click', () => closeModal(modal));
   cancelBtn.addEventListener('click', () => closeModal(modal));
 
@@ -913,22 +973,52 @@ function setupEntryModal() {
     });
   });
 
+  const onQtyChange = () => {
+    if (!state.isEditMacrosCustomized) {
+      updateEditEntryPreview();
+    }
+  };
+
   minusBtn.addEventListener('click', () => {
     let q = parseFloat(qtyInput.value) || 1;
     q = Math.max(0.25, roundTo(q - 0.25, 2));
     qtyInput.value = q;
-    updateEditEntryPreview();
+    onQtyChange();
   });
 
   plusBtn.addEventListener('click', () => {
     let q = parseFloat(qtyInput.value) || 1;
     q = roundTo(q + 0.25, 2);
     qtyInput.value = q;
+    onQtyChange();
+  });
+
+  qtyInput.addEventListener('input', onQtyChange);
+
+  // Mark customized when user directly edits macros
+  [calInput, proInput, carbInput, fatInput].forEach(input => {
+    if (input) input.addEventListener('input', () => {
+      state.isEditMacrosCustomized = true;
+      if (customBadge) customBadge.style.display = 'inline-flex';
+    });
+  });
+
+  // Reset to servings-scaled values
+  if (resetBtn) resetBtn.addEventListener('click', () => {
+    state.isEditMacrosCustomized = false;
+    if (customBadge) customBadge.style.display = 'none';
     updateEditEntryPreview();
   });
 
-  qtyInput.addEventListener('input', () => {
-    updateEditEntryPreview();
+  // Recalculate calories from macros using 4/4/9 rule
+  if (recalcBtn) recalcBtn.addEventListener('click', () => {
+    const pro = parseFloat(proInput.value) || 0;
+    const carb = parseFloat(carbInput.value) || 0;
+    const fat = parseFloat(fatInput.value) || 0;
+    const computed = Math.round(pro * 4 + carb * 4 + fat * 9);
+    calInput.value = computed;
+    state.isEditMacrosCustomized = true;
+    if (customBadge) customBadge.style.display = 'inline-flex';
   });
 
   saveBtn.addEventListener('click', () => {
@@ -937,10 +1027,16 @@ function setupEntryModal() {
     const activeMealBtn = modal.querySelector('#editMealSelector .meal-tab-btn.active');
     const targetMeal = activeMealBtn ? activeMealBtn.dataset.meal : 'lunch';
     const newQty = Math.max(0.05, parseFloat(qtyInput.value) || 1);
+    const isCustom = state.isEditMacrosCustomized;
 
     updateMealEntry(dateStr, entryId, {
       quantity: newQty,
-      mealType: targetMeal
+      mealType: targetMeal,
+      calories: isCustom ? parseInt(calInput.value) || 0 : undefined,
+      protein: isCustom ? parseFloat(proInput.value) || 0 : undefined,
+      carbs: isCustom ? parseFloat(carbInput.value) || 0 : undefined,
+      fat: isCustom ? parseFloat(fatInput.value) || 0 : undefined,
+      isCustomPortion: isCustom
     });
 
     closeModal(modal);
@@ -963,21 +1059,25 @@ function setupEntryModal() {
 
 function openEntryModal(entry) {
   state.selectedEntryForEdit = entry;
+  state.isEditMacrosCustomized = entry.isCustomPortion || false;
   const modal = document.getElementById('entryModal');
 
   document.getElementById('editEntryId').value = entry.id;
   document.getElementById('editEntryDate').value = state.currentDate;
   document.getElementById('editEntryName').textContent = entry.name;
-  document.getElementById('editEntryServing').textContent = `Base: ${entry.servingSize}`;
+  document.getElementById('editEntryServing').textContent =
+    entry.baseFood
+      ? `Base: ${entry.baseFood.servingSize || entry.servingSize} • ${entry.baseFood.calories} kcal / serving`
+      : `Serving: ${entry.servingSize}`;
+
+  // Show customized badge if entry has custom macros
+  const customBadge = document.getElementById('editCustomBadge');
+  if (customBadge) customBadge.style.display = state.isEditMacrosCustomized ? 'inline-flex' : 'none';
 
   // Meal selector
   const mealBtns = modal.querySelectorAll('#editMealSelector .meal-tab-btn');
   mealBtns.forEach(btn => {
-    if (btn.dataset.meal === entry.mealType) {
-      btn.classList.add('active');
-    } else {
-      btn.classList.remove('active');
-    }
+    btn.classList.toggle('active', btn.dataset.meal === entry.mealType);
   });
 
   document.getElementById('editEntryQuantityInput').value = entry.quantity;
@@ -990,17 +1090,116 @@ function updateEditEntryPreview() {
   const entry = state.selectedEntryForEdit;
   const qty = Math.max(0.01, parseFloat(document.getElementById('editEntryQuantityInput').value) || 1);
 
-  // Compute ratio from base entry
-  const ratio = qty / entry.quantity;
-  const cal = Math.round(entry.calories * ratio);
-  const pro = roundTo(entry.protein * ratio, 1);
-  const carb = roundTo(entry.carbs * ratio, 1);
-  const fat = roundTo(entry.fat * ratio, 1);
+  // Compute scaled values from baseFood if available, else ratio from current
+  let cal, pro, carb, fat;
+  if (entry.baseFood) {
+    cal = Math.round((parseFloat(entry.baseFood.calories) || 0) * qty);
+    pro = roundTo((parseFloat(entry.baseFood.protein) || 0) * qty, 1);
+    carb = roundTo((parseFloat(entry.baseFood.carbs) || 0) * qty, 1);
+    fat = roundTo((parseFloat(entry.baseFood.fat) || 0) * qty, 1);
+  } else {
+    const ratio = qty / entry.quantity;
+    cal = Math.round(entry.calories * ratio);
+    pro = roundTo(entry.protein * ratio, 1);
+    carb = roundTo(entry.carbs * ratio, 1);
+    fat = roundTo(entry.fat * ratio, 1);
+  }
 
-  document.getElementById('editPreviewCalories').textContent = cal;
-  document.getElementById('editPreviewProtein').textContent = `${pro}g`;
-  document.getElementById('editPreviewCarbs').textContent = `${carb}g`;
-  document.getElementById('editPreviewFat').textContent = `${fat}g`;
+  // Only update fields if not customized by user
+  if (!state.isEditMacrosCustomized) {
+    const calIn = document.getElementById('editEntryCaloriesInput');
+    const proIn = document.getElementById('editEntryProteinInput');
+    const carbIn = document.getElementById('editEntryCarbsInput');
+    const fatIn = document.getElementById('editEntryFatInput');
+    if (calIn) calIn.value = cal;
+    if (proIn) proIn.value = pro;
+    if (carbIn) carbIn.value = carb;
+    if (fatIn) fatIn.value = fat;
+  }
+}
+
+/* ==================== QUICK ADD MODAL ==================== */
+function setupQuickAddModal() {
+  const modal = document.getElementById('quickAddModal');
+  if (!modal) return;
+
+  const closeBtn = document.getElementById('closeQuickAddModalBtn');
+  const cancelBtn = document.getElementById('cancelQuickAddBtn');
+  const form = document.getElementById('quickAddForm');
+  const mealBtns = modal.querySelectorAll('#quickMealSelector .meal-tab-btn');
+  const calInput = document.getElementById('quickCaloriesInput');
+  const proInput = document.getElementById('quickProteinInput');
+  const carbInput = document.getElementById('quickCarbsInput');
+  const fatInput = document.getElementById('quickFatInput');
+  const autoCalcBtn = document.getElementById('quickAutoCalcCalBtn');
+
+  closeBtn.addEventListener('click', () => closeModal(modal));
+  cancelBtn.addEventListener('click', () => closeModal(modal));
+
+  // Meal tab selection
+  mealBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      mealBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+
+  // ⚡ Calculate calories from macros (4/4/9 rule)
+  if (autoCalcBtn) {
+    autoCalcBtn.addEventListener('click', () => {
+      const pro = parseFloat(proInput.value) || 0;
+      const carb = parseFloat(carbInput.value) || 0;
+      const fat = parseFloat(fatInput.value) || 0;
+      const computed = Math.round(pro * 4 + carb * 4 + fat * 9);
+      calInput.value = computed;
+    });
+  }
+
+  // Form submit — log the custom quick-add entry
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const activeMealBtn = modal.querySelector('#quickMealSelector .meal-tab-btn.active');
+    const mealType = activeMealBtn ? activeMealBtn.dataset.meal : 'lunch';
+    const name = document.getElementById('quickFoodName').value.trim() || 'Quick Meal';
+    const calories = parseInt(calInput.value) || 0;
+    const protein = parseFloat(proInput.value) || 0;
+    const carbs = parseFloat(carbInput.value) || 0;
+    const fat = parseFloat(fatInput.value) || 0;
+
+    addMealEntry(state.currentDate, {
+      mealType,
+      name,
+      servingSize: 'custom',
+      quantity: 1,
+      calories,
+      protein,
+      carbs,
+      fat,
+      fiber: 0,
+      isCustomPortion: true
+    });
+
+    closeModal(modal);
+    renderDashboard();
+    switchView('dashboard');
+    showToast(`⚡ Logged "${name}" to ${mealType.toUpperCase()}`);
+  });
+}
+
+function openQuickAddModal(preselectedMeal = 'lunch') {
+  const modal = document.getElementById('quickAddModal');
+  if (!modal) return;
+
+  // Reset form
+  document.getElementById('quickAddForm').reset();
+
+  // Set meal tabs
+  const mealBtns = modal.querySelectorAll('#quickMealSelector .meal-tab-btn');
+  mealBtns.forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.meal === preselectedMeal);
+  });
+
+  openModal(modal);
 }
 
 /* ==================== SETTINGS & TARGETS MODAL ==================== */
