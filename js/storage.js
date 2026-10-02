@@ -185,6 +185,10 @@ export function getDayEntries(dateStr) {
   return logs[dateStr] || [];
 }
 
+export function getLogDates() {
+  return Object.keys(getStoredLogs()).sort();
+}
+
 export function addMealEntry(dateStr, entryData) {
   const logs = getStoredLogs();
   if (!logs[dateStr]) {
@@ -399,8 +403,18 @@ export function exportAllData() {
     foods: getFoods(),
     logs: getStoredLogs(),
     targets: getTargets(),
-    settings: getSettings()
+    settings: getSettings(),
+    weightHistory: readOptionalStorage('caltrack_weight_v1', []),
+    activity: readOptionalStorage('caltrack_activity_v1', {})
   };
+}
+
+function readOptionalStorage(key, fallback) {
+  try {
+    return JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback));
+  } catch (error) {
+    return fallback;
+  }
 }
 
 export function importAllData(data) {
@@ -416,6 +430,12 @@ export function importAllData(data) {
   }
   if (data.settings) {
     localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(data.settings));
+  }
+  if (Array.isArray(data.weightHistory)) {
+    localStorage.setItem('caltrack_weight_v1', JSON.stringify(data.weightHistory));
+  }
+  if (data.activity && typeof data.activity === 'object') {
+    localStorage.setItem('caltrack_activity_v1', JSON.stringify(data.activity));
   }
   return true;
 }

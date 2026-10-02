@@ -1,4 +1,4 @@
-const CACHE_NAME = 'caltrack-v1';
+const CACHE_NAME = 'caltrack-v2';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -8,6 +8,10 @@ const ASSETS_TO_CACHE = [
   './js/icons.js',
   './js/nutrition.js',
   './js/storage.js',
+  './js/weight.js',
+  './js/activity.js',
+  './js/analytics.js',
+  './js/health-connect.js',
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/icon.svg'

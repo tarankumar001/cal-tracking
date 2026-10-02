@@ -344,6 +344,113 @@
       </div>
     </section>
 
+    <!-- MAIN VIEW 3: ANALYTICS -->
+    <section id="analyticsView" class="view-container">
+      <div class="analytics-page-heading">
+        <p class="eyebrow-label">Your patterns, over time</p>
+        <h2 class="section-title">Analytics</h2>
+      </div>
+
+      <div class="range-control" role="group" aria-label="Analytics date range">
+        <button type="button" class="range-btn active" data-analytics-range="7">7D</button>
+        <button type="button" class="range-btn" data-analytics-range="30">30D</button>
+        <button type="button" class="range-btn" data-analytics-range="90">90D</button>
+        <button type="button" class="range-btn" data-analytics-range="all">All</button>
+      </div>
+
+      <section class="analytics-section">
+        <div class="section-label-row">
+          <div>
+            <p class="eyebrow-label">Scale trend</p>
+            <h3 class="section-title">Body weight</h3>
+          </div>
+          <button type="button" id="logWeightBtn" class="btn-primary-create">+ Log weight</button>
+        </div>
+        <div class="weight-stat-grid">
+          <div class="weight-stat"><span>Latest</span><strong id="latestWeightValue">—</strong></div>
+          <div class="weight-stat"><span>Today</span><strong id="todayWeightValue">—</strong></div>
+          <div class="weight-stat"><span>Previous</span><strong id="previousWeightValue">—</strong></div>
+          <div class="weight-stat"><span>Vs. previous</span><strong id="weightChangeValue">—</strong></div>
+          <div class="weight-stat"><span>7-day avg</span><strong id="weightAverageValue">—</strong></div>
+        </div>
+        <div class="analytics-panel">
+          <div class="chart-legend"><span><i class="legend-dot weight-raw"></i>Daily average</span><span><i class="legend-dot weight-average"></i>7-day average</span></div>
+          <div id="weightChart" class="chart-scroll"></div>
+          <p class="analytics-note">Daily measurements can fluctuate; the average is a trend, not a fat-gain/loss estimate.</p>
+        </div>
+        <div class="history-heading"><h4>Measurements</h4><span id="weightHistoryCount"></span></div>
+        <div id="weightHistoryList" class="weight-history-list"></div>
+      </section>
+
+      <section class="analytics-section">
+        <div class="section-label-row">
+          <div><p class="eyebrow-label">Daily movement</p><h3 class="section-title">Activity</h3></div>
+          <button type="button" id="healthConnectBtn" class="btn-block-secondary compact-action">Connect</button>
+        </div>
+        <div class="activity-overview">
+          <div><span>Steps today</span><strong id="stepsTodayValue">No data</strong></div>
+          <div><span>Goal</span><strong id="stepGoalValue">10,000</strong></div>
+          <div><span>Weekly average</span><strong id="weeklyStepsValue">No data</strong></div>
+        </div>
+        <p id="healthConnectStatus" class="analytics-note" aria-live="polite">Health Connect is not connected.</p>
+        <p id="stepSourceStatus" class="analytics-note">Today's source: no entry</p>
+        <div class="analytics-panel"><div id="stepsChart" class="chart-scroll"></div></div>
+        <form id="stepGoalForm" class="inline-data-form">
+          <label for="stepGoalInput">Daily goal</label>
+          <input type="number" id="stepGoalInput" class="form-input" min="1" step="1" value="10000">
+          <button type="submit" class="btn-block-secondary compact-action">Save</button>
+        </form>
+        <form id="manualStepsForm" class="inline-data-form">
+          <label for="manualStepsDate">Manual entry</label>
+          <input type="date" id="manualStepsDate" class="form-input" required>
+          <input type="number" id="manualStepsValue" class="form-input" min="0" step="1" placeholder="Steps" aria-label="Steps" required>
+          <button type="submit" class="btn-block-secondary compact-action">Save</button>
+        </form>
+      </section>
+
+      <section class="analytics-section">
+        <div class="section-label-row"><div><p class="eyebrow-label">From your food diary</p><h3 class="section-title">Calories</h3></div></div>
+        <div class="analytics-stat-row">
+          <div><span>7-day average</span><strong id="averageCaloriesValue">—</strong></div>
+          <div><span>Vs. target</span><strong id="calorieTargetDifference">—</strong></div>
+        </div>
+        <div class="analytics-panel">
+          <div class="chart-legend"><span><i class="legend-dot calorie-line"></i>Consumed</span><span><i class="legend-dot target-line"></i>Target</span></div>
+          <div id="calorieChart" class="chart-scroll"></div>
+          <p id="calorieAverageCaption" class="analytics-note"></p>
+        </div>
+      </section>
+
+      <section class="analytics-section">
+        <div class="section-label-row"><div><p class="eyebrow-label">Daily totals</p><h3 class="section-title">Macros</h3></div></div>
+        <div class="macro-range-control" role="group" aria-label="Choose macro trend">
+          <button type="button" class="range-btn active" data-analytics-macro="protein">Protein</button>
+          <button type="button" class="range-btn" data-analytics-macro="carbs">Carbs</button>
+          <button type="button" class="range-btn" data-analytics-macro="fat">Fat</button>
+          <button type="button" class="range-btn" data-analytics-macro="fiber">Fiber</button>
+        </div>
+        <div class="analytics-panel"><div id="macroChart" class="chart-scroll"></div></div>
+      </section>
+
+      <section class="analytics-section correlation-section">
+        <p class="eyebrow-label">Context, not causation</p>
+        <h3 class="section-title">Compare your trends</h3>
+        <p class="analytics-note">Weight, calories, and steps are shown separately above on the same date range. Compare longer patterns; this view does not infer that a single day caused a weight change.</p>
+      </section>
+    </section>
+
+    <!-- MAIN VIEW 4: LEARN -->
+    <section id="learnView" class="view-container learn-view">
+      <div class="analytics-page-heading">
+        <p class="eyebrow-label">Clear, practical context</p>
+        <h2 class="section-title">Learn</h2>
+      </div>
+      <article class="learn-section"><h3>Calories</h3><p>A calorie is a unit of energy. Food and drinks provide energy; your body uses energy for basic functions, movement, and exercise.</p><p>A <strong>deficit</strong> means average intake is below energy use. A <strong>surplus</strong> means intake is above it. <strong>Maintenance</strong>, often estimated as total daily energy expenditure (TDEE), is the intake that tends to keep weight stable over time.</p></article>
+      <article class="learn-section"><h3>Fat loss takes a trend</h3><p>A commonly used estimate is about <strong>7,700 kcal per kg of body fat</strong>. It is a simplified approximation, not an exact biological rule or a day-by-day prediction.</p><p>Scale weight also changes with water, glycogen, food in digestion, sodium, carbohydrate intake, training, hormonal fluctuations, and changes in body composition. A one-day change is not a direct measure of fat gained or lost.</p><div class="estimate-list"><div><span>300 kcal/day deficit</span><strong>≈ 2,100 kcal/week</strong></div><div><span>500 kcal/day deficit</span><strong>≈ 3,500 kcal/week</strong></div><div><span>750 kcal/day deficit</span><strong>≈ 5,250 kcal/week</strong></div></div><p class="analytics-note">These are simplified arithmetic estimates, not guaranteed weight-loss rates.</p></article>
+      <article class="learn-section"><h3>Why weight moves overnight</h3><p>A change like 73 kg to 74 kg overnight does not mean 1 kg of body fat was gained. Fluid balance and digestive contents can move the scale quickly.</p><p>For useful comparisons, weigh under consistent conditions, such as in the morning after using the bathroom. Look at a 7-day average and longer-term direction rather than one reading.</p></article>
+      <article class="learn-section"><h3>Protein</h3><p>Protein supports many body functions and helps maintain muscle, especially alongside resistance training during a calorie deficit. Your overall daily intake matters more than whether one individual meal hits a specific number.</p></article>
+    </section>
+
     <!-- BOTTOM NAVIGATION BAR -->
     <nav class="bottom-nav">
       <button id="navDashboardBtn" class="nav-item active" aria-label="Dashboard">
@@ -358,6 +465,16 @@
       <button id="navFoodsBtn" class="nav-item" aria-label="Food Database">
         <span id="navIconFoods"></span>
         <span>Foods</span>
+      </button>
+
+      <button id="navAnalyticsBtn" class="nav-item" aria-label="Analytics">
+        <span id="navIconAnalytics"></span>
+        <span>Analytics</span>
+      </button>
+
+      <button id="navLearnBtn" class="nav-item" aria-label="Learn">
+        <span id="navIconLearn"></span>
+        <span>Learn</span>
       </button>
     </nav>
   </div>
@@ -787,6 +904,24 @@
         <button type="button" id="cancelSettingsBtn" class="btn-block-secondary">Cancel</button>
         <button type="submit" form="settingsForm" class="btn-block-primary">Save Targets</button>
       </div>
+    </div>
+  </div>
+
+  <div id="weightModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="weightModalTitle">
+    <div class="modal-sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <h3 id="weightModalTitle" class="sheet-title">Log weight</h3>
+        <button type="button" id="closeWeightModalBtn" class="action-icon-btn" aria-label="Close modal"></button>
+      </div>
+      <form id="weightForm" class="sheet-body">
+        <input type="hidden" id="weightEntryId">
+        <div class="form-group"><label class="form-label" for="weightInput">Body weight (kg)</label><input type="number" id="weightInput" class="form-input" min="1" max="1000" step="0.1" required></div>
+        <div class="form-group"><label class="form-label" for="weightDateTimeInput">Date and time</label><input type="datetime-local" id="weightDateTimeInput" class="form-input" required></div>
+        <div class="form-group"><label class="form-label" for="weightNoteInput">Note <span>(optional)</span></label><input type="text" id="weightNoteInput" class="form-input" maxlength="120" placeholder="e.g. Morning weigh-in"></div>
+        <button type="button" id="deleteWeightBtn" class="btn-danger-outline" hidden>Delete measurement</button>
+        <div class="sheet-footer"><button type="button" id="cancelWeightModalBtn" class="btn-block-secondary">Cancel</button><button type="submit" class="btn-block-primary">Save weight</button></div>
+      </form>
     </div>
   </div>
 
