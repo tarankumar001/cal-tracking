@@ -70,16 +70,36 @@ export function initStorage() {
     }));
   }
 
-  // Note: We do NOT auto-seed daily meal logs anymore so users get a clean diary each day.
-  // Clean up any previously auto-seeded dummy entries from today's log:
+  // Seed today's lunch with the example food ONLY if today has no entries yet
+  // (Does not modify or delete any existing entries)
   const today = getTodayDateString();
   const logs = getStoredLogs();
-  if (logs[today] && Array.isArray(logs[today])) {
-    const cleaned = logs[today].filter(entry => !entry.id.startsWith('entry_seed_'));
-    if (cleaned.length !== logs[today].length) {
-      logs[today] = cleaned;
-      localStorage.setItem(STORAGE_KEYS.LOGS, JSON.stringify(logs));
-    }
+  if (!logs[today] || logs[today].length === 0) {
+    const seedEntry = {
+      id: 'entry_seed_' + Date.now(),
+      foodId: INITIAL_EXAMPLE_FOOD.id,
+      mealType: 'lunch',
+      name: INITIAL_EXAMPLE_FOOD.name,
+      servingSize: INITIAL_EXAMPLE_FOOD.servingSize,
+      quantity: 1,
+      calories: INITIAL_EXAMPLE_FOOD.calories,
+      protein: INITIAL_EXAMPLE_FOOD.protein,
+      carbs: INITIAL_EXAMPLE_FOOD.carbs,
+      fat: INITIAL_EXAMPLE_FOOD.fat,
+      fiber: INITIAL_EXAMPLE_FOOD.fiber,
+      baseFood: {
+        calories: INITIAL_EXAMPLE_FOOD.calories,
+        protein: INITIAL_EXAMPLE_FOOD.protein,
+        carbs: INITIAL_EXAMPLE_FOOD.carbs,
+        fat: INITIAL_EXAMPLE_FOOD.fat,
+        fiber: INITIAL_EXAMPLE_FOOD.fiber,
+        servingSize: INITIAL_EXAMPLE_FOOD.servingSize
+      },
+      isCustomPortion: false,
+      loggedAt: new Date().toISOString()
+    };
+    logs[today] = [seedEntry];
+    localStorage.setItem(STORAGE_KEYS.LOGS, JSON.stringify(logs));
   }
 }
 
